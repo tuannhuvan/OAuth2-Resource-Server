@@ -1,0 +1,10 @@
+services:
+  mysql:
+    image: 'mysql:8.4'
+    environment:
+      - 'MYSQL_DATABASE=catalogdb'
+      - 'MYSQL_ROOT_PASSWORD=rootpassword'
+      - 'MYSQL_USER=catalog'
+      - 'MYSQL_PASSWORD=catalogpassword'
+    ports:
+      - '3306:3306'

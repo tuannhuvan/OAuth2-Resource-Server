@@ -1,0 +1,390 @@
+openapi: 3.1.0
+info:
+  title: Catalog REST API - Spring Security 7 OAuth2 Resource Server
+  description: "Hệ thống bảo vệ REST API bằng JSON Web Token (RS256 bất đối xứng)\
+    \ tích hợp Refresh Token Rotation, Reuse Detection, Single/All Logout, Rate Limiting\
+    \ và Key Rotation."
+  contact:
+    name: Senior Business Analyst & Security Team
+    email: ba-team@fptaptech.edu.vn
+  license:
+    name: Apache 2.0
+    url: https://spring.io/projects/spring-security
+  version: 2.0.0
+servers:
+- url: http://localhost
+  description: Generated server url
+security:
+- bearerAuth: []
+tags:
+- name: Product Catalog
+  description: "Quản lý danh mục sản phẩm (Đọc Public, Ghi yêu cầu ROLE_ADMIN)"
+- name: Authentication & Sessions
+  description: "Quản lý cấp phát JWT, xoay vòng Refresh Token, Logout & Đổi mật khẩ\
+    u"
+paths:
+  /api/v1/products/{id}:
+    get:
+      tags:
+      - Product Catalog
+      summary: Xem chi tiết sản phẩm (Public)
+      description: Không yêu cầu JWT token
+      operationId: getProductById
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SingleProductResponse"
+    put:
+      tags:
+      - Product Catalog
+      summary: Cập nhật sản phẩm (ROLE_ADMIN)
+      description: Yêu cầu JWT Token có vai trò ROLE_ADMIN
+      operationId: updateProduct
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SingleProductResponse"
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Product Catalog
+      summary: Xóa sản phẩm (ROLE_ADMIN)
+      description: Yêu cầu JWT Token có vai trò ROLE_ADMIN
+      operationId: deleteProduct
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+  /api/v1/products:
+    get:
+      tags:
+      - Product Catalog
+      summary: Xem danh sách sản phẩm (Public)
+      description: Không yêu cầu JWT token
+      operationId: getAllProducts
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CollectionProductResponse"
+    post:
+      tags:
+      - Product Catalog
+      summary: Tạo mới sản phẩm (ROLE_ADMIN)
+      description: Yêu cầu JWT Token có vai trò ROLE_ADMIN
+      operationId: createProduct
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRequest"
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SingleProductResponse"
+      security:
+      - bearerAuth: []
+  /api/auth/token:
+    post:
+      tags:
+      - Authentication & Sessions
+      summary: Đăng nhập lấy Token (Public)
+      description: Cấp Access Token (JWT 15m) và Refresh Token (7d)
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+  /api/auth/refresh:
+    post:
+      tags:
+      - Authentication & Sessions
+      summary: Xoay vòng Refresh Token (Public)
+      description: Đổi Refresh Token cũ lấy cặp Access Token + Refresh Token mới (Phát
+        hiện dùng lại)
+      operationId: refresh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+  /api/auth/logout:
+    post:
+      tags:
+      - Authentication & Sessions
+      summary: Đăng xuất thiết bị hiện tại (Single Logout)
+      description: Thu hồi Access Token JTI và Refresh Token
+      operationId: logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+      security:
+      - bearerAuth: []
+  /api/auth/logout-all:
+    post:
+      tags:
+      - Authentication & Sessions
+      summary: Đăng xuất tất cả thiết bị (Logout All / SLO)
+      description: Tăng token_version và thu hồi toàn bộ Refresh Token của tài khoản
+      operationId: logoutAll
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+      security:
+      - bearerAuth: []
+  /api/auth/change-password:
+    post:
+      tags:
+      - Authentication & Sessions
+      summary: Đổi mật khẩu người dùng
+      description: Đổi mật khẩu và tự động thu hồi toàn bộ phiên đăng nhập cũ
+      operationId: changePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+      security:
+      - bearerAuth: []
+  /api/auth/me:
+    get:
+      tags:
+      - Authentication & Sessions
+      summary: Xem thông tin phiên người dùng hiện tại
+      description: Yêu cầu JWT Bearer Token
+      operationId: getMe
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserSummaryResponse"
+      security:
+      - bearerAuth: []
+  /.well-known/jwks.json:
+    get:
+      tags:
+      - Authentication & Sessions
+      summary: Xuất bản danh sách khóa công khai (JWKS)
+      description: Cung cấp Public Keys phục vụ xác minh chữ ký bất đối xứng (Key
+        Rotation)
+      operationId: getJwks
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+components:
+  schemas:
+    ProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          minLength: 0
+        description:
+          type: string
+          maxLength: 500
+          minLength: 0
+        price:
+          type: number
+          minimum: 0.0
+      required:
+      - name
+      - price
+    ProductResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    SingleProductResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/ProductResponse"
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+      - password
+      - username
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+    RefreshRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+      - refreshToken
+    ChangePasswordRequest:
+      type: object
+      properties:
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+      required:
+      - newPassword
+      - oldPassword
+    CollectionProductResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductResponse"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        per_page:
+          type: integer
+          format: int32
+        current_page:
+          type: integer
+          format: int32
+        total_pages:
+          type: integer
+          format: int32
+    UserSummaryResponse:
+      type: object
+      properties:
+        username:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+  securitySchemes:
+    bearerAuth:
+      type: http
+      description: Nhập JWT Access Token vào đây (không cần gõ tiền tố 'Bearer ')
+      name: bearerAuth
+      scheme: bearer
+      bearerFormat: JWT
